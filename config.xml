@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+	<name>niubiz</name>
+	<displayName><![CDATA[Nibuz - Pagos con tarjeta de crédito y débito]]></displayName>
+	<version><![CDATA[3.0.0]]></version>
+	<description><![CDATA[Realiza pagos con tu tarjeta de crédito y débito en Perú]]></description>
+	<author><![CDATA[Victor Castro]]></author>
+	<tab><![CDATA[payments_gateways]]></tab>
+	<is_configurable>1</is_configurable>
+	<need_instance>1</need_instance>
+</module>
