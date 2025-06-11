@@ -186,15 +186,15 @@ class Niubiz extends PaymentModule
 
         return parent::uninstall();
     }
-    
+
     public function hookDisplayAdminOrderSideBottom($params)
     {
         $orderId = $params['id_order'];
-        
+
         $request = 'SELECT * FROM `'._DB_PREFIX_.'niubiz_log` WHERE id_order = "'.$orderId.'"';
-        
+
         $row = Db::getInstance()->getRow($request);
-        
+
         $this->context->smarty->assign(array(
             'logNbz' => $row,
             'params' => $params,
@@ -752,32 +752,58 @@ class Niubiz extends PaymentModule
         return false;
     }
 
+    private function logError($message, $context = array()) {
+        PrestaShopLogger::addLog(
+            'Niubiz: ' . $message,
+            3, // Error level
+            null,
+            'Niubiz',
+            null,
+            true
+        );
+    }
+
     public function securityKey()
     {
         $currency = new Currency($this->context->cookie->id_currency);
 
-        $accessKey = $this->vsauser != '' ? $this->vsauser : die('NIUBIZ :: No se ha encontrado el usuario para la moneda '.$currency->iso_code);
-        $secretKey = $this->vsapassword != '' ? $this->vsapassword : die('NIUBIZ :: No se ha encontrado la contraseña para la moneda '.$currency->iso_code);
+        if ($this->vsauser == '') {
+            $this->logError('User not found for currency ' . $currency->iso_code);
+            return false;
+        }
+        if ($this->vsapassword == '') {
+            $this->logError('Password not found for currency ' . $currency->iso_code);
+            return false;
+        }
+
         $header = array("Content-Type: application/json");
         $ch = curl_init();
 
         curl_setopt($ch, CURLOPT_URL, $this->security_api);
         curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-        curl_setopt($ch, CURLOPT_USERPWD, "$accessKey:$secretKey");
+        curl_setopt($ch, CURLOPT_USERPWD, "$this->vsauser:$this->vsapassword");
         curl_setopt($ch, CURLOPT_HEADER, FALSE);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
         $key = curl_exec($ch);
-        if ($key !== 'Unauthorized access')
-            return $key;
-        else
-            die($key);
+
+        if ($key === 'Unauthorized access') {
+            $this->logError('Unauthorized access to Niubiz API');
+            return false;
+        }
+
+        return $key;
     }
 
     public function createToken($amount, $key)
     {
+        if (!$key) {
+            $this->logError('Could not create token: Invalid security key');
+            return false;
+        }
+
         $header = ["Content-Type: application/json", "Authorization: $key"];
         $request_body = '{
             "amount" : '.$amount.',
@@ -803,17 +829,16 @@ class Niubiz extends PaymentModule
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
         $response = curl_exec($ch);
         $json = json_decode($response);
+
         if (!isset($json->sessionKey)) {
-            echo json_encode([
+            $this->logError('Error creating session token', [
                 'session_api' => $this->session_api,
                 'response' => $json
             ]);
-            die;
+            return false;
         }
-        $dato = $json->sessionKey;
 
-
-        return $dato;
+        return $json->sessionKey;
     }
 
     public function userTokenId()
