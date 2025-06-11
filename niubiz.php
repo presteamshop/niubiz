@@ -623,9 +623,15 @@ class Niubiz extends PaymentModule
         $currency = new Currency($this->context->cookie->id_currency);
         $amount = number_format($cart->getOrderTotal(true, Cart::BOTH), 2, '.', '');
         $securityKey = $this->securityKey();
+        if (!$securityKey) {
+            return;
+        }
         setcookie("niubizkey-$cart->id", $securityKey);
 
         $sessionToken = $this->createToken($amount, $securityKey);
+        if (!$sessionToken) {
+            return;
+        }
         $userTokenId = $this->userTokenId();
 
         if (Configuration::get('NBZ_USD'))
